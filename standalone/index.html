@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>ScorpiLibria</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #000;
+        color: #ededed;
+        font-family: sans-serif;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+      }
+      img {
+        width: 220px;
+      }
+      p {
+        font-size: 28px;
+        margin: 0;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <img src="icon.png" alt="" />
+    <p id="msg">Загрузка…</p>
+    <script>
+      // Оболочка: открываем сайт в этом же окне. Режим ТВ сайт включит сам (User-Agent
+      // Tizen), медиакнопки пульта он регистрирует сам, а «Назад» на главной и кнопка
+      // «Выход» закрывают приложение. location.replace — чтобы «Назад» не возвращал
+      // на эту заставку.
+      var SITE = 'https://scorpilibria-frontend.vercel.app/';
+      var RETRY_MS = 5000;
+      var timer = null;
+      var msg = document.getElementById('msg');
+
+      function waitAndRetry(text) {
+        msg.textContent = text + ' Повторим через несколько секунд — или нажмите OK.';
+        clearTimeout(timer);
+        timer = setTimeout(start, RETRY_MS);
+      }
+
+      // Телевизор часто включается раньше, чем поднимается Wi-Fi: сначала убеждаемся,
+      // что сайт отвечает, и только потом уходим на него (иначе — системная ошибка
+      // браузера ТВ без кнопки «повторить»).
+      function start() {
+        clearTimeout(timer);
+        if (navigator.onLine === false) {
+          waitAndRetry('Нет подключения к интернету.');
+          return;
+        }
+        msg.textContent = 'Загрузка…';
+        // Проверяем картинкой, а не XHR: на картинки не действуют ограничения CORS,
+        // которые в браузере ТВ могли бы «ронять» проверку при живом сайте.
+        var done = false;
+        var probe = new Image();
+        var finish = function (ok) {
+          if (done) return;
+          done = true;
+          clearTimeout(probeTimer);
+          if (ok) location.replace(SITE);
+          else waitAndRetry('Не удалось подключиться к сайту.');
+        };
+        var probeTimer = setTimeout(function () {
+          finish(false);
+        }, 8000);
+        probe.onload = function () {
+          finish(true);
+        };
+        probe.onerror = function () {
+          finish(false);
+        };
+        probe.src = SITE + 'icon.png?ping=' + Date.now();
+      }
+
+      window.addEventListener('online', start);
+
+      document.addEventListener('keydown', function (e) {
+        if (e.keyCode === 13) start();
+        if (e.keyCode === 10009) {
+          try {
+            tizen.application.getCurrentApplication().exit();
+          } catch (err) {
+            /* не Tizen */
+          }
+        }
+      });
+
+      start();
+    </script>
+  </body>
+</html>
